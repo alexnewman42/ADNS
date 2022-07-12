@@ -1,0 +1,45 @@
+#######
+#
+# This script creates a mailbox for a user listed in the csv file in the HR folder
+# Since I am posting this publicly be sure to change the parts listed as "redacted"
+#
+#######
+
+
+# Creates default password
+
+$year = (get-date).year
+$password = "redacted" + $year + "!"
+$passwordSecure = ConvertTo-SecureString -string $password -AsPlainText -Force
+
+
+# Pull names from csv shared with HR. Checks if a user with the name already exists. If it does it sends me an email saying so. 
+# If not, it creates a new mailbox/AD account and emails HR (and Me) stating that it was created. 
+
+$smtp1 = "IP Address redacted"
+
+Import-Csv "\\Redacted-dc\Data\ELT\Admin File Room\Management Access Required\HR\New Hires\newusers.csv" | foreach-object {
+$firstName = $_.firstName
+$lastName = $_.lastName
+$nameDisplaed = $firstName + " " + $lastName
+$userName = $firstName + "." + $lastName
+$emailAddress = $username+ "@redacted.com"
+$emailSubject = "New Employee Account Created - $nameDisplayed"
+$emailBody = "A new account has been created for $nameDisplayed
+
+Username = $userName
+
+Password is the default password. They'll be prompted to pick a new password the first time they log in."
+
+if (@(Get-ADUser -Filter { SamAccountName -eq $userName }).Count -eq 0) {
+
+new-mailbox -Alias $username -FirstName $firstName -LastName $lastName -DispalayName $nameDisplayed -Name $nameDisplayed -OrganizationalUnit SBSUsers -userprincipalname $emailAddress -Password $passwordSecure -ResetPasswordOnNextLogon $true -Database DB1
+send-mailmessage -to hr@redacted.com -from help@adnsolutions.com -subject "$emailSubject" -body "$emailBody" -SmtpServer $smtp1
+
+}
+
+else (
+
+send-mailmessage -to alex@adnsolutions.com -from help@adnsolutions.com -subject "User already exists" -body "$userName already exists" -SmtpServer $smtp1
+}
+}
